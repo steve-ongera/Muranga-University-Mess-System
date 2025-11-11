@@ -198,11 +198,12 @@ def index(request):
     ).order_by('display_order')[:8]
     
     # Get best selling items (items with most orders)
+    # Fixed: use 'orderitem' instead of 'order_items'
     best_selling = FoodItem.objects.filter(
         is_active=True,
         is_available=True
     ).annotate(
-        order_count=Count('order_items')
+        order_count=Count('orderitem')
     ).order_by('-order_count')[:10]
     
     # Get latest items (recently added)
