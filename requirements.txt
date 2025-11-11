@@ -1,0 +1,34 @@
+Django==4.2.7
+Pillow==10.1.0
+requests==2.31.0
+python-decouple==3.8
+django-cors-headers==4.3.1
+django-crispy-forms==2.1
+crispy-bootstrap5==1.0.0
+
+# For database (choose one)
+# PostgreSQL
+psycopg2-binary==2.9.9
+
+# MySQL
+# mysqlclient==2.2.0
+
+# Payment Gateway
+# For Africa's Talking SMS (optional)
+# africastalking==1.2.7
+
+# For better admin interface (optional)
+django-admin-interface==0.26.1
+
+# For API (optional)
+djangorestframework==3.14.0
+
+# For timezone support
+pytz==2023.3
+
+# For development
+django-debug-toolbar==4.2.0
+
+# For production
+gunicorn==21.2.0
+whitenoise==6.6.0
