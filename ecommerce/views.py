@@ -148,60 +148,97 @@ def logout_view(request):
 
 # ==================== HOME & PRODUCT VIEWS ====================
 
+from django.shortcuts import render, get_object_or_404
+from django.utils import timezone
+from django.db.models import Q, Count
+from .models import (
+    Category, FoodItem, DailyMenu, DailyMenuItem, 
+    MealPeriod, Order
+)
+
+
 def index(request):
-    """Homepage with current meal period and featured items"""
-    now = timezone.now()
-    current_date = now.date()
-    current_time = now.time()
+    """
+    Homepage view showing featured items and daily menu
+    """
+    today = timezone.now().date()
+    current_time = timezone.now().time()
     
     # Get current meal period
-    current_meal_period = None
-    for period in MealPeriod.objects.filter(is_active=True):
-        if period.start_time <= current_time <= period.end_time:
-            current_meal_period = period
-            break
+    current_meal_period = MealPeriod.objects.filter(
+        is_active=True,
+        start_time__lte=current_time,
+        end_time__gte=current_time
+    ).first()
     
     # Get today's menu for current meal period
-    current_menu = None
+    todays_menu = None
     menu_items = []
-    
     if current_meal_period:
-        try:
-            current_menu = DailyMenu.objects.get(
-                date=current_date,
-                meal_period=current_meal_period,
-                is_published=True,
-                is_active=True
-            )
-            menu_items = current_menu.menu_items.filter(
+        todays_menu = DailyMenu.objects.filter(
+            date=today,
+            meal_period=current_meal_period,
+            is_published=True,
+            is_active=True
+        ).prefetch_related(
+            'menu_items__food_item__category'
+        ).first()
+        
+        if todays_menu:
+            menu_items = todays_menu.menu_items.filter(
                 is_available=True,
                 plates_remaining__gt=0
-            ).select_related('food_item', 'food_item__category')
-        except DailyMenu.DoesNotExist:
-            pass
+            ).select_related('food_item__category')[:10]
     
-    # Get all active categories
-    categories = Category.objects.filter(is_active=True).prefetch_related('subcategories')
+    # Get featured categories (top 8)
+    featured_categories = Category.objects.filter(
+        is_active=True
+    ).annotate(
+        item_count=Count('food_items')
+    ).order_by('display_order')[:8]
     
-    # Get featured items (items with most orders)
-    featured_items = FoodItem.objects.filter(
+    # Get best selling items (items with most orders)
+    best_selling = FoodItem.objects.filter(
         is_active=True,
         is_available=True
     ).annotate(
         order_count=Count('order_items')
-    ).order_by('-order_count')[:6]
+    ).order_by('-order_count')[:10]
     
-    context = {
-        'current_meal_period': current_meal_period,
-        'current_menu': current_menu,
-        'menu_items': menu_items,
-        'categories': categories,
-        'featured_items': featured_items,
-        'can_order': current_menu and current_menu.is_ordering_allowed() if current_menu else False,
+    # Get latest items (recently added)
+    latest_items = FoodItem.objects.filter(
+        is_active=True,
+        is_available=True
+    ).order_by('-created_at')[:10]
+    
+    # Get popular items (most frequently appearing in menus)
+    popular_items = FoodItem.objects.filter(
+        is_active=True,
+        is_available=True
+    ).annotate(
+        menu_count=Count('daily_appearances')
+    ).order_by('-menu_count')[:10]
+    
+    # Statistics for hero section
+    stats = {
+        'total_varieties': FoodItem.objects.filter(is_active=True).count(),
+        'total_orders': Order.objects.filter(status='served').count(),
+        'meal_periods': MealPeriod.objects.filter(is_active=True).count(),
     }
     
-    return render(request, 'mess/index.html', context)
-
+    context = {
+        'todays_menu': todays_menu,
+        'menu_items': menu_items,
+        'current_meal_period': current_meal_period,
+        'featured_categories': featured_categories,
+        'best_selling': best_selling,
+        'latest_items': latest_items,
+        'popular_items': popular_items,
+        'stats': stats,
+        'ordering_allowed': todays_menu.is_ordering_allowed() if todays_menu else False,
+    }
+    
+    return render(request, 'index.html', context)
 
 def product_list(request):
     """List all available food items for current meal period"""

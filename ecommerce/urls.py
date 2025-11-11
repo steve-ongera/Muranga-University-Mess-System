@@ -11,6 +11,7 @@ urlpatterns = [
     path('category/<slug:slug>/', views.category_detail, name='category_detail'),
     path('search/', views.search, name='search'),
     
+
     # Authentication URLs
     path('register/', views.register, name='register'),
     path('login/', views.login_view, name='login'),
